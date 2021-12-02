@@ -12,6 +12,11 @@ import sys
 from PIL import Image
 import numpy as np
 
+# 关于lmdb数据库使用, 当时对接Python 2.x，所以使用Bytestrings，而不是unicode，
+# 所以在Python 3.x中要显示encode，decode。
+# https://lmdb.readthedocs.io/en/release/
+# uses bytestring to mean either the Python<=2.7 str() type, or the Python>=3.0 bytes() type, d
+# Always explicitly encode and decode any Unicode values before passing them to LMDB.
 
 class lmdbDataset(Dataset):
 
@@ -29,7 +34,7 @@ class lmdbDataset(Dataset):
             sys.exit(0)
 
         with self.env.begin(write=False) as txn:
-            nSamples = int(txn.get('num-samples'))
+            nSamples = int(txn.get('num-samples'.encode()).decode())
             self.nSamples = nSamples
 
         self.transform = transform
@@ -43,7 +48,7 @@ class lmdbDataset(Dataset):
         index += 1
         with self.env.begin(write=False) as txn:
             img_key = 'image-%09d' % index
-            imgbuf = txn.get(img_key)
+            imgbuf = txn.get(img_key.encode())
 
             buf = six.BytesIO()
             buf.write(imgbuf)
@@ -58,7 +63,7 @@ class lmdbDataset(Dataset):
                 img = self.transform(img)
 
             label_key = 'label-%09d' % index
-            label = str(txn.get(label_key))
+            label = str(txn.get(label_key.encode()))
 
             if self.target_transform is not None:
                 label = self.target_transform(label)
