@@ -63,7 +63,7 @@ class lmdbDataset(Dataset):
                 img = self.transform(img)
 
             label_key = 'label-%09d' % index
-            label = str(txn.get(label_key.encode()))
+            label = txn.get(label_key.encode()).decode()
 
             if self.target_transform is not None:
                 label = self.target_transform(label)
