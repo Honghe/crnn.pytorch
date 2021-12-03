@@ -4,6 +4,10 @@ Convolutional Recurrent Neural Network
 This software implements the Convolutional Recurrent Neural Network (CRNN) in pytorch.
 Origin software could be found in [crnn](https://github.com/bgshih/crnn)
 
+## Env
+- Python 3.8
+- PyTorch 1.10
+
 Run demo
 --------
 A demo program can be found in ``demo.py``. Before running the demo, download a pretrained model
@@ -36,3 +40,6 @@ Update
 ------
 1. Use `torch.CTCLoss` for easy environment creating.
 2. Port to Python 3, does not support Python 2 now.
+
+## TODO
+1. The pres and loss are NAN after several steps.

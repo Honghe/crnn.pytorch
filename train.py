@@ -176,20 +176,23 @@ def trainBatch(net, criterion, optimizer):
     t, l = converter.encode(cpu_texts)
     # utils.loadData(text, t)
     # utils.loadData(length, l)
+    # TOTO use Variable for efficient
     image = cpu_images.cuda()
     text = t
     length = l
     import random
     preds = crnn(image)
-    if random.random() > 0.999:
+    preds_size = Variable(torch.IntTensor([preds.size(0)] * batch_size))
+    cost = criterion(preds, text, preds_size, length) / batch_size
+    if random.random() > 0.99:
         # import ipdb
         # ipdb.set_trace()
+        print(f'{image.shape=}')
         print(f'{image=}')
         print(f'{text.cpu().numpy()=}')
         print(f'{length=}')
         print(f'{preds.cpu().detach().numpy()=}')
-    preds_size = Variable(torch.IntTensor([preds.size(0)] * batch_size))
-    cost = criterion(preds, text, preds_size, length) / batch_size
+        print(f'{cost=}')
     crnn.zero_grad()
     cost.backward()
     optimizer.step()
