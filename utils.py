@@ -22,12 +22,12 @@ class strLabelConverter(object):
         self._ignore_case = ignore_case
         if self._ignore_case:
             alphabet = alphabet.lower()
-        self.alphabet = alphabet + '-'  # for `-1` index
+        self.alphabet = '_' + alphabet  # blank label '_' for `0` index
 
         self.dict = {}
-        for i, char in enumerate(alphabet):
-            # NOTE: 0 is reserved for 'blank' required by wrap_ctc
-            self.dict[char] = i + 1
+        for i, char in enumerate(self.alphabet):
+            # NOTE: 0 is for 'blank' required by wrap_ctc
+            self.dict[char] = i
 
     def encode(self, text):
         """Support batch or single str.
@@ -68,12 +68,12 @@ class strLabelConverter(object):
             length = length[0]
             assert t.numel() == length, "text with length: {} does not match declared length: {}".format(t.numel(), length)
             if raw:
-                return ''.join([self.alphabet[i - 1] for i in t])
+                return ''.join([self.alphabet[i] for i in t])
             else:
                 char_list = []
                 for i in range(length):
                     if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):
-                        char_list.append(self.alphabet[t[i] - 1])
+                        char_list.append(self.alphabet[t[i]])
                 return ''.join(char_list)
         else:
             # batch mode
@@ -132,6 +132,7 @@ def oneHot(v, v_length, nc):
 
 def loadData(v, data):
     with torch.no_grad():
+        # TODO can not `resize_` from smaller shpae to larger shape.
         v.resize_(data.size()).copy_(data)
 
 

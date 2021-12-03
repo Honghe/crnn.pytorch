@@ -14,7 +14,7 @@ from torch import nn
 import os
 import utils
 import dataset
-
+from torchinfo import summary
 import models.crnn as crnn
 
 parser = argparse.ArgumentParser()
@@ -36,7 +36,7 @@ parser.add_argument('--displayInterval', type=int, default=500, help='Interval t
 parser.add_argument('--n_test_disp', type=int, default=10, help='Number of samples to display when test')
 parser.add_argument('--valInterval', type=int, default=500, help='Interval to be displayed')
 parser.add_argument('--saveInterval', type=int, default=500, help='Interval to be displayed')
-parser.add_argument('--lr', type=float, default=0.01, help='learning rate for Critic, not used by adadealta')
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate for Critic, not used by adadealta')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is rmsprop)')
 parser.add_argument('--adadelta', action='store_true', help='Whether to use adadelta (default is rmsprop)')
@@ -94,6 +94,7 @@ if opt.pretrained != '':
     print('loading pretrained model from %s' % opt.pretrained)
     crnn.load_state_dict(torch.load(opt.pretrained))
 print(crnn)
+summary(crnn)
 
 image = torch.FloatTensor(opt.batchSize, 3, opt.imgH, opt.imgH)
 text = torch.IntTensor(opt.batchSize * 5)
@@ -152,9 +153,7 @@ def val(net, dataset, criterion, max_iter=100):
         preds_size = Variable(torch.IntTensor([preds.size(0)] * batch_size))
         cost = criterion(preds, text, preds_size, length) / batch_size
         loss_avg.add(cost)
-
         _, preds = preds.max(2)
-        preds = preds.squeeze(2)
         preds = preds.transpose(1, 0).contiguous().view(-1)
         sim_preds = converter.decode(preds.data, preds_size.data, raw=False)
         for pred, target in zip(sim_preds, cpu_texts):
@@ -173,12 +172,22 @@ def trainBatch(net, criterion, optimizer):
     data = train_iter.next()
     cpu_images, cpu_texts = data
     batch_size = cpu_images.size(0)
-    utils.loadData(image, cpu_images)
+    # utils.loadData(image, cpu_images)
     t, l = converter.encode(cpu_texts)
-    utils.loadData(text, t)
-    utils.loadData(length, l)
-
+    # utils.loadData(text, t)
+    # utils.loadData(length, l)
+    image = cpu_images.cuda()
+    text = t
+    length = l
+    import random
     preds = crnn(image)
+    if random.random() > 0.999:
+        # import ipdb
+        # ipdb.set_trace()
+        print(f'{image=}')
+        print(f'{text.cpu().numpy()=}')
+        print(f'{length=}')
+        print(f'{preds.cpu().detach().numpy()=}')
     preds_size = Variable(torch.IntTensor([preds.size(0)] * batch_size))
     cost = criterion(preds, text, preds_size, length) / batch_size
     crnn.zero_grad()
@@ -199,15 +208,15 @@ for epoch in range(opt.nepoch):
         loss_avg.add(cost)
         i += 1
 
-        if i % opt.displayInterval == 0:
-            print('[%d/%d][%d/%d] Loss: %f' %
-                  (epoch, opt.nepoch, i, len(train_loader), loss_avg.val()))
-            loss_avg.reset()
+    if epoch % opt.displayInterval == 0:
+        print('[%d/%d][%d/%d] Loss: %f' %
+                (epoch, opt.nepoch, i, len(train_loader), loss_avg.val()))
+        loss_avg.reset()
 
-        if i % opt.valInterval == 0:
-            val(crnn, test_dataset, criterion)
+    if epoch % opt.valInterval == 0:
+        val(crnn, test_dataset, criterion)
 
-        # do checkpointing
-        if i % opt.saveInterval == 0:
-            torch.save(
-                crnn.state_dict(), '{0}/netCRNN_{1}_{2}.pth'.format(opt.expr_dir, epoch, i))
+    # do checkpointing
+    if epoch % opt.saveInterval == 0:
+        torch.save(
+            crnn.state_dict(), '{0}/netCRNN_{1}.pth'.format(opt.expr_dir, epoch))

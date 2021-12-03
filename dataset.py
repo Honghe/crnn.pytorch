@@ -124,18 +124,33 @@ class alignCollate(object):
 
         imgH = self.imgH
         imgW = self.imgW
-        if self.keep_ratio:
-            ratios = []
-            for image in images:
+        output_images = []
+        for image in images:
+            if self.keep_ratio:
                 w, h = image.size
-                ratios.append(w / float(h))
-            ratios.sort()
-            max_ratio = ratios[-1]
-            imgW = int(np.floor(max_ratio * imgH))
-            imgW = max(imgH * self.min_ratio, imgW)  # assure imgH >= imgW
+                ratio = w / float(h)
+                imgW = int(np.floor(ratio * imgH))
+                imgW = min(imgH * self.min_ratio, imgW)  # assure image.w <= imgW
+            # resize to the same imgH
+            transform = resizeNormalize((imgW, imgH))
+            output_images.append(transform(image))
+        # padding
+        # image.shape i.e. (1, 32, 100)
+        max_image_width = max([image.shape[2] for image in output_images])
+        max_label_length = max([len(label) for label in labels])
+        batch_size = len(output_images)
+        channel_size = 1
+        inputs = np.zeros((batch_size, channel_size, imgH, max_image_width), dtype='float32')
+        # '_' for blank label
+        output_labels =[['_'] * max_label_length for _ in range(batch_size)]
+        for x in range(batch_size):
+            image = output_images[x]
+            width = image.shape[2]
+            inputs[x, :, :, :width] = image
+            output_labels[x][:len(labels[x])] = labels[x]
 
-        transform = resizeNormalize((imgW, imgH))
-        images = [transform(image) for image in images]
-        images = torch.cat([t.unsqueeze(0) for t in images], 0)
+        # list to str
+        output_labels = [''.join(x) for x in output_labels]
+        images = torch.cat([torch.from_numpy(t).unsqueeze(0) for t in inputs], 0)
 
-        return images, labels
+        return images, output_labels
